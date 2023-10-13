@@ -1,0 +1,11 @@
+- name: Gather Facts Playbook Test
+  hosts: all,!rhhqkvm7.turnpike.iway
+  gather_facts: false
+  serial: 1
+  tasks:
+    - name: Test fact gathering with 60 second timeout
+      ansible.builtin.setup:
+      timeout: 60
+      ignore_errors: true
+      ignore_unreachable: true
+...

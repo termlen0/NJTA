@@ -1,0 +1,59 @@
+---
+- name: Send email notification(s) for Red Hat Near Capacity Filesystems
+  hosts: p8hqnim.turnpike.iway
+  become: true
+  gather_facts: no
+
+  tasks:
+  - name: Combine all fs check output files into one file
+    ansible.builtin.shell: 'cat /opt/df_outputfiles/* > /tmp/rhfsNearCapacity.out'
+    ignore_errors: true
+
+  - name: Check for near capacity filesystems in output file
+    ansible.builtin.shell: 'cat /tmp/rhfsNearCapacity.out | wc -l'
+    register: lines
+
+  - name: Send Results via email when near capacity filesystems have been detected
+    ansible.builtin.shell: /usr/bin/mailx -s "Red Hat Filesystem(s) reaching capacity!" mwei@njta.com < /tmp/rhfsNearCapacity.out
+    when: lines.stdout|int > 1
+
+  - name: Clear out /opt/df_outputfiles
+    ansible.builtin.shell: 'rm -rf /opt/df_outputfiles/*'
+
+  - name: Delete /tmp/rhfsNearCapacity.out
+    ansible.builtin.shell: 'rm -rf /tmp/rhfsNearCapacity.out'
+
+- name: Send email notification(s) for unreachable Red Hat Systems
+  hosts: p8hqnim.turnpike.iway
+  become: true
+  gather_facts: no
+
+  tasks:
+  - name: Check for unreachable Red Hat Systems
+    ansible.builtin.shell: 'cat /tmp/rhSystemsDown.out | wc -l'
+    register: lines
+
+  - name: Send Results via email when there are detected unreachable Red Hat Systems
+    ansible.builtin.shell: /usr/bin/mailx -s "Unreachable Red Hat System(s)!" mwei@njta.com < /tmp/rhSystemsDown.out
+    when: lines.stdout|int > 1
+
+  - name: Delete /tmp/rhSystemsDown.out
+    ansible.builtin.shell: 'rm -rf /tmp/rhSystemsDown.out'
+
+- name: Send email notification(s) for unreachable AIX Systems
+  hosts: p8hqnim.turnpike.iway
+  become: true
+  gather_facts: no
+
+  tasks:
+  - name: Check for unreachable AIX Systems
+    ansible.builtin.shell: 'cat /tmp/AIXSystemsDown.out | wc -l'
+    register: lines
+
+  - name: Send Results via email when there are detected unreachable AIX Systems
+    ansible.builtin.shell: /usr/bin/mailx -s "Unreachable AIX System(s)!" mwei@njta.com < /tmp/AIXSystemsDown.out
+    when: lines.stdout|int > 1
+
+  - name: Delete /tmp/AIXSystemsDown.out
+    ansible.builtin.shell: 'rm -rf /tmp/AIXSystemsDown.out'
+...

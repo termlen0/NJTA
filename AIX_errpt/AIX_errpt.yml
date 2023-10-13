@@ -1,0 +1,94 @@
+---
+- name: Check AIX Memory Usage
+  hosts: all
+  become: true
+  gather_facts: no
+
+  tasks:
+  - name: Remove log file
+    file:
+      path: /tmp/errpt.out
+      state: absent
+
+  - name: Create log file
+    file:
+      path: /tmp/errpt.out
+      state: touch
+      mode: 0644
+
+  - name: Set host Check Error Log Script Location
+    ansible.builtin.file:
+      path: /usr/local/bin
+      owner: root
+      mode: 0755
+      state: directory
+
+  - name: Copy Check Error Log Script
+    file:
+       path: "{{ my_dir }}/errpt.sh"
+       dest:  /usr/local/bin/errpt.sh
+       mode: 0640
+       state: touch
+    delegate_to: rhansible.turnpike.iway
+
+  - name: Copy Remove Empty Lines Script
+    file:
+       path: "{{ my_dir }}/rmemptylines.sh"
+       dest:  /usr/local/bin/rmemptylines.sh
+       mode: 0640
+       state: touch
+    delegate_to: rhansible.turnpike.iway
+
+  - name: Sync Check Error Log Script
+    ansible.posix.synchronize:
+      src: "{{ my_dir }}/errpt.sh"
+      dest:  /usr/local/bin/errpt.sh
+    delegate_to: rhansible.turnpike.iway
+
+  - name: Sync Remove Empty Lines Script
+    ansible.posix.synchronize:
+      src: "{{ my_dir }}/rmemptylines.sh"
+      dest:  /usr/local/bin/rmemptylines.sh
+    delegate_to: rhansible.turnpike.iway
+
+  - name: Confirm Check Error Log Script is present
+    ansible.builtin.file:
+      path: /usr/local/bin/errpt.sh
+      owner: root
+      mode: 0755
+      state: file
+
+  - name: Confirm Remove Empty Lines Script is present
+    ansible.builtin.file:
+      path: /usr/local/bin/rmemptylines.sh
+      owner: root
+      mode: 0755
+      state: file
+
+  - name: Execute Check Error Log Script
+    vars:
+      df_threshold: 80
+    ansible.builtin.shell: /usr/local/bin/errpt.sh 
+    register: errpt_msg
+
+  - name: Set Fact
+    ansible.builtin.set_fact:
+     thehost: "{{ ansible_host }}"
+
+  - name: Copy Error Log data to local file /tmp/errpt.out
+    ansible.builtin.lineinfile:
+     line: "{{ '*** ' + thehost + ' ***\n' + errpt_msg.stdout }}"
+     path: /tmp/errpt.out
+     insertafter: EOF
+ 
+  - name: Remove empty line(s) from /tmp/errpt.out
+    ansible.builtin.shell: '/usr/local/bin/rmemptylines.sh /tmp/errpt.out'
+
+  - name: Check for Error Logs in /tmp/errpt.out
+    ansible.builtin.shell: 'cat /tmp/errpt.out | wc -l'
+    register: lines
+
+  - name: Send Results via email when high memory usage found
+    ansible.builtin.shell: /usr/bin/mailx -s "AIX System Errors Detected!" mwei@njta.com bturcotte@njta.com < /tmp/errpt.out
+    when: lines.stdout|int > 1
+...

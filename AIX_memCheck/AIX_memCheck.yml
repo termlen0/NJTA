@@ -1,0 +1,94 @@
+---
+- name: Check AIX Memory Usage
+  hosts: all
+  become: true
+  gather_facts: no
+
+  tasks:
+  - name: Remove log file
+    file:
+      path: /tmp/mem.out
+      state: absent
+
+  - name: Create log file
+    file:
+      path: /tmp/mem.out
+      state: touch
+      mode: 0644
+
+  - name: Set host Check Memory Script Location
+    ansible.builtin.file:
+      path: /usr/local/bin
+      owner: root
+      mode: 0755
+      state: directory
+
+  - name: Copy Check Memory Script
+    file:
+       path: "{{ my_dir }}/mem.sh"
+       dest:  /usr/local/bin/mem.sh
+       mode: 0640
+       state: touch
+    delegate_to: rhansible.turnpike.iway
+
+  - name: Copy Remove Empty Lines Script
+    file:
+       path: "{{ my_dir }}/rmemptylines.sh"
+       dest:  /usr/local/bin/rmemptylines.sh
+       mode: 0640
+       state: touch
+    delegate_to: rhansible.turnpike.iway
+
+  - name: Sync Check Memory Script
+    ansible.posix.synchronize:
+      src: "{{ my_dir }}/mem.sh"
+      dest:  /usr/local/bin/mem.sh
+    delegate_to: rhansible.turnpike.iway
+
+  - name: Sync Remove Empty Lines Script
+    ansible.posix.synchronize:
+      src: "{{ my_dir }}/rmemptylines.sh"
+      dest:  /usr/local/bin/rmemptylines.sh
+    delegate_to: rhansible.turnpike.iway
+
+  - name: Confirm Check Memory Script is present
+    ansible.builtin.file:
+      path: /usr/local/bin/mem.sh
+      owner: root
+      mode: 0755
+      state: file
+
+  - name: Confirm Remove Empty Lines Script is present
+    ansible.builtin.file:
+      path: /usr/local/bin/rmemptylines.sh
+      owner: root
+      mode: 0755
+      state: file
+
+  - name: Execute Check Memory Script
+    vars:
+      df_threshold: 80
+    ansible.builtin.shell: /usr/local/bin/mem.sh {{ memory_threshold }}
+    register: mem_msg
+
+  - name: Set Fact
+    ansible.builtin.set_fact:
+     thehost: "{{ ansible_host }}"
+
+  - name: Copy memory threshold data to local file /tmp/mem.out
+    ansible.builtin.lineinfile:
+     line: "{{ '*** ' + thehost + ' ***\n' + mem_msg.stdout }}"
+     path: /tmp/mem.out
+     insertafter: EOF
+ 
+  - name: Remove empty line(s) from /tmp/mem.out
+    ansible.builtin.shell: '/usr/local/bin/rmemptylines.sh /tmp/mem.out'
+
+  - name: Check for high memory usage in /tmp/mem.out
+    ansible.builtin.shell: 'cat /tmp/mem.out | wc -l'
+    register: lines
+
+  - name: Send Results via email when high memory usage found
+    ansible.builtin.shell: /usr/bin/mailx -s "AIX High Memory Usage Detected!" mwei@njta.com < /tmp/mem.out
+    when: lines.stdout|int > 1
+...

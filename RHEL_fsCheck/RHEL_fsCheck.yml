@@ -1,0 +1,57 @@
+---
+- name: Check for near capacity Red Hat Filesystems 
+  hosts: all
+  become: true
+  gather_facts: no
+
+  tasks:
+  - name: Remove log file
+    ansible.builtin.shell: 'rm -rf /tmp/df*'
+
+  - name: Clear out /tmp/df_outputfiles in dhqrh8ansible
+    ansible.builtin.shell: 'rm -rf /tmp/df_outputfiles/*'
+    delegate_to: rhansible.turnpike.iway
+    run_once: true
+
+  - name: Sync Check Filesystems Script
+    ansible.posix.synchronize:
+      mode: push
+      src: /usr/local/bin/scripts/redhat_df.sh
+      dest: /usr/local/bin/redhat_df.sh
+      rsync_timeout: 10
+    delegate_to: rhansible.turnpike.iway
+
+  - name: Sync Remove Empty Lines Script
+    ansible.posix.synchronize:
+      mode: push
+      src: /usr/local/bin/scripts/rmemptylines.sh
+      dest: /usr/local/bin/rmemptylines.sh
+      rsync_timeout: 10
+    delegate_to: rhansible.turnpike.iway
+
+  - name: Execute Check Filesystems Script
+    ansible.builtin.shell: '/usr/local/bin/redhat_df.sh'
+
+  - name: Remove empty line(s) from /tmp/df.out
+    ansible.builtin.shell: '/usr/local/bin/rmemptylines.sh /tmp/df*'
+
+  - name: Check for near capacity filesystems in output file
+    ansible.builtin.shell: 'cat /tmp/df* | wc -l'
+    register: lines
+    failed_when: lines.stdout|int > 1
+    ignore_errors: true
+
+  - name: Sync all output files that have more than 1 line to dhqrh8ansible
+    ansible.posix.synchronize:
+      mode: pull
+      src: /tmp/df*
+      dest: /tmp/df_outputfiles/
+      rsync_timeout: 10 
+    delegate_to: rhansible.turnpike.iway
+    when: lines.stdout|int > 1
+
+  - name: Sync all output files in /tmp/df_outputfiles/ to p8hqnim
+    ansible.builtin.shell: 'rsync -avh /tmp/df_outputfiles/ root@p8hqnim.turnpike.iway:/opt/df_outputfiles/'    
+    delegate_to: rhansible.turnpike.iway
+    run_once: true
+...

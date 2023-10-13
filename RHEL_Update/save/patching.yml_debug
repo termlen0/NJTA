@@ -1,0 +1,10 @@
+---
+- name: Apply Non-kernel Updates
+  hosts: "*"
+  become: true
+
+  tasks:
+  - name: print play hosts that failed
+    debug:
+        msg: "{{ ansible_play_hosts_all|difference(ansible_play_hosts) }}"
+    run_once: true

@@ -1,0 +1,28 @@
+---
+- name: Take Red Hat VM Disk Image Backups for DMZ KVMs
+  hosts: regsvrhq3.turnpike.iway
+  become: true
+  gather_facts: false
+
+  tasks:
+  - name: Create rhhqkvm1 directory in /rhvmbckup 
+    ansible.builtin.shell: mkdir /rhvmbckup/rhhqkvm1.turnpike.dmz/
+    ignore_errors: true
+
+  - name: Create rhstkvm1 directory in /rhvmbckup
+    ansible.builtin.shell: mkdir /rhvmbckup/rhstkvm1.turnpike.dmz/
+    ignore_errors: true
+
+  - name: Rsync all disk image files from /kvm* directories in RHHQKVM1.turnpike.dmz
+    ansible.builtin.shell: rsync -avh rhhqkvm1.turnpike.dmz:/kvm* /rhvmbckup/rhhqkvm1.turnpike.dmz/
+
+  - name: Rsync all disk image files from /kvm* directories in RHSTKVM1.turnpike.dmz
+    ansible.builtin.shell: rsync -avh rhstkvm1.turnpike.dmz:/kvm* /rhvmbckup/rhstkvm1.turnpike.dmz/
+
+  - name: Rsync all VM XML configuration files from /etc/libvirt/qemu in RHHQKVM1.turnpike.dmz
+    ansible.builtin.shell: rsync -avh rhhqkvm1.turnpike.dmz:/etc/libvirt/qemu/* /rhvmbckup/rhhqkvm1.turnpike.dmz/
+
+  - name: Rsync all VM XML configuration files from /etc/libvirt/qemu in RHSTKVM1.turnpike.dmz
+    ansible.builtin.shell: rsync -avh rhstkvm1.turnpike.dmz:/etc/libvirt/qemu/* /rhvmbckup/rhstkvm1.turnpike.dmz/
+
+...

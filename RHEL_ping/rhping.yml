@@ -1,0 +1,13 @@
+---
+- name: Red Hat systems ping test
+  hosts: "*"
+  gather_facts: false
+  become: true
+
+  tasks:
+  - name: Execute ping
+    #local_action: ansible.builtin.command "/usr/bin/ping -c 4 {{ inventory_hostname }}"
+    ansible.builtin.shell: ping -c 4 {{ inventory_hostname }}
+    delegate_to: regsvrhq3.turnpike.iway
+    ignore_errors: true 
+...

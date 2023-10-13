@@ -1,0 +1,37 @@
+---
+- name: Take mksysb Backups for AIX Systems
+  hosts: all
+  become: true
+  gather_facts: no
+  tasks:
+
+    - name: Unmount /mnt in case something else is mounted
+      ansible.builtin.shell: 'umount /mnt'
+      ignore_errors: True
+
+    - name: Mount /mksysb to /mnt
+      ansible.builtin.shell: 'mount p8hqnim:/mksysb /mnt'
+
+    - name: List mounted filesystems
+      ibm.power_aix.mount:
+        state: show
+
+- name: Create backup image mksysb
+  hosts: all
+  gather_facts: no
+  tasks:
+    - ibm.power_aix.backup:
+        action: create
+        type: mksysb
+        location: /mnt/{{ ansible_host }} 
+        extend_fs: yes
+        force: yes
+        verbose: yes
+  ignore_errors: True
+   
+- name: umount mksysb NFS
+  hosts: all
+  gather_facts: no
+  tasks:
+    - ansible.builtin.shell: 'umount /mnt'
+...

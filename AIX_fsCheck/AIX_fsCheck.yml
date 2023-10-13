@@ -1,0 +1,94 @@
+---
+- name: Check AIX Filesystems 
+  hosts: all
+  become: true
+  gather_facts: no
+
+  tasks:
+  - name: Remove log file
+    file:
+      path: /tmp/aix_mon.out
+      state: absent
+
+  - name: Create log file
+    file:
+      path: /tmp/aix_mon.out
+      state: touch
+      mode: 0644
+
+  - name: Set host Check Filesystems Script Location
+    ansible.builtin.file:
+      path: /usr/local/bin
+      owner: root
+      mode: 0755
+      state: directory
+
+  - name: Copy Check Filesystems Script
+    file:
+       path: "{{ my_dir }}/df.sh"
+       dest:  /usr/local/bin/df.sh
+       mode: 0640
+       state: touch
+    delegate_to: rhansible.turnpike.iway
+
+  - name: Copy Remove Empty Lines Script
+    file:
+       path: "{{ my_dir }}/rmemptylines.sh"
+       dest:  /usr/local/bin/rmemptylines.sh
+       mode: 0640
+       state: touch
+    delegate_to: rhansible.turnpike.iway
+
+  - name: Sync Check Filesystems Script
+    ansible.posix.synchronize:
+      src: "{{ my_dir }}/df.sh"
+      dest:  /usr/local/bin/df.sh
+    delegate_to: rhansible.turnpike.iway
+
+  - name: Sync Remove Empty Lines Script
+    ansible.posix.synchronize:
+      src: "{{ my_dir }}/rmemptylines.sh"
+      dest:  /usr/local/bin/rmemptylines.sh
+    delegate_to: rhansible.turnpike.iway
+
+  - name: Confirm Check Filesystems Script is present
+    ansible.builtin.file:
+      path: /usr/local/bin/df.sh
+      owner: root
+      mode: 0755
+      state: file
+
+  - name: Confirm Remove Empty Lines Script is present
+    ansible.builtin.file:
+      path: /usr/local/bin/rmemptylines.sh
+      owner: root
+      mode: 0755
+      state: file
+
+  - name: Execute Check Filesystems Script
+    vars:
+      df_threshold: 80
+    ansible.builtin.shell: /usr/local/bin/df.sh {{ df_threshold }}
+    register: df_msg
+
+  - name: Set Fact
+    ansible.builtin.set_fact:
+     thehost: "{{ ansible_host }}"
+
+  - name: Copy filesystem threshold data to local file /tmp/aix_mon.out
+    ansible.builtin.lineinfile:
+     line: "{{ '*** ' + thehost + ' ***\n' + df_msg.stdout }}"
+     path: /tmp/aix_mon.out
+     insertafter: EOF
+ 
+  - name: Remove empty line(s) from /tmp/aix_mon.out
+    ansible.builtin.shell: '/usr/local/bin/rmemptylines.sh /tmp/aix_mon.out'
+
+  - name: Check for near capacity filesystems in /tmp/aix_mon.out
+    ansible.builtin.shell: 'cat /tmp/aix_mon.out | wc -l'
+    register: lines
+
+  - name: Send Results via email when near capacity filesystems have been detected
+    ansible.builtin.shell: /usr/bin/mailx -s "AIX Filesystem(s) reaching capacity!" mwei@njta.com bturcotte@njta.com < /tmp/aix_mon.out
+    when: lines.stdout|int > 1
+...

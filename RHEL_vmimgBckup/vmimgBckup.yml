@@ -1,0 +1,35 @@
+---
+- name: Take Red Hat VM Disk Image Backups
+  hosts: "*"
+  become: true
+  gather_facts: false
+
+  tasks:
+
+  - name: Create or touch /rhvmbckup in target system
+    file:
+     path: /rhvmbckup
+     state: directory
+     mode: 0755
+     group: root
+     owner: root
+
+  - name: Mount /rhvmbckup from p8hqnim
+    ansible.builtin.shell: mount -o nfsvers=3 p8hqnim:/rhvmbckup /rhvmbckup
+    ignore_errors: true
+
+  - name: Create hostname directories in /rhvmbckup 
+    ansible.builtin.shell: mkdir /rhvmbckup/"{{ ansible_host }}"/
+    ignore_errors: true
+
+  - name: Rsync all disk image files from /kvm* directories
+    ansible.builtin.shell: rsync -avh /kvm* /rhvmbckup/"{{ ansible_host }}"/
+
+  - name: Rsync all VM XML configuration files from /etc/libvirt/qemu
+    ansible.builtin.shell: rsync -avh /etc/libvirt/qemu/* /rhvmbckup/"{{ ansible_host }}"/
+
+  - name: Umount /rhvmbckup
+    ansible.builtin.shell: umount /rhvmbckup
+    ignore_errors: true
+
+...

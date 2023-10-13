@@ -1,0 +1,25 @@
+---
+- name: Take mksysb Backups for AIX DMZ Systems
+  hosts: all
+  become: true
+  gather_facts: no
+
+  tasks:
+    - name: Unmount /mnt in case something else is mounted
+      ansible.builtin.shell: 'umount /mnt'
+      ignore_errors: True
+
+    - name: Mount /nim/mksysb to /mnt
+      ansible.builtin.shell: 'mount 192.168.6.248:/nim/mksysb /mnt'
+
+    - name: Create backup image mksysb
+      ibm.power_aix.backup:
+          action: create
+          type: mksysb
+          location: /mnt/{{ ansible_host }}
+          extend_fs: yes
+      ignore_errors: True
+
+    - name: umount mksysb NFS
+      ansible.builtin.shell: 'umount /mnt'
+...

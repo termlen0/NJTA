@@ -1,0 +1,10 @@
+---
+- name: sync DMZ mksysb to p8hqnim
+  hosts: p8hqnim.turnpike.iway
+  become: true
+  gather_facts: no
+
+  tasks:
+  - name: Execute getDMZmksysb.sh script
+    ansible.builtin.shell: /usr/local/bin/getDMZmksysb.sh
+...

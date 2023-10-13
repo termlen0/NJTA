@@ -1,0 +1,37 @@
+---
+- name: Check for UNREACHABLE systems and notify
+  hosts: "*"
+  gather_facts: true
+  become: true
+
+  tasks:
+  - name: Delete old /tmp/AIXSystemsDown.out
+    ansible.builtin.shell: rm -rf /tmp/AIXSystemsDown.out 
+    delegate_to: rhansible.turnpike.iway
+    run_once: true
+
+  #- name: Pull only systems that are UNREACHABLE to variable down
+  #  set_fact:
+  #      down: "{{ ansible_play_hosts_all|difference(ansible_play_batch) }}"
+  #  run_once: true
+
+  - name: print play hosts that failed
+    debug:
+        msg: 
+          - "Systems that are UNREACHABLE: "
+          - "{{  ansible_play_hosts_all|difference(ansible_play_batch) }}"
+    register: message
+    run_once: true
+
+  - name: Create file with list of systems that are down in dhqrh8ansible
+    ansible.builtin.copy:
+       content: "{{  ansible_play_hosts_all|difference(ansible_play_batch) | to_nice_json }}" 
+       dest: /tmp/AIXSystemsDown.out
+    delegate_to: rhansible.turnpike.iway
+    run_once: true
+
+  - name: rsync /tmp/AIXSystemsDown.out to p8hqnim
+    ansible.builtin.shell: rsync -avh /tmp/AIXSystemsDown.out root@p8hqnim:/tmp/
+    delegate_to: rhansible.turnpike.iway
+    run_once: true 
+...

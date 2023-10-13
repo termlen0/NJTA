@@ -1,0 +1,33 @@
+---
+- name: Take ReaR Backup
+  hosts: "*"
+  become: true
+
+  tasks:
+  - name: Check if ReaR is installed
+    ansible.builtin.shell: rpm -qa | grep rear
+    register: rear_installed 
+    ignore_errors: True
+    check_mode: False
+    changed_when: False
+    
+
+  - name: Install ReaR if not installed
+    when: rear_installed.rc == 1
+    debug:
+      msg: "ReaR is not installed, installing ReaR"
+      ansible.builtin.yum:
+          name:
+          - rear
+          - genisoimage
+          - syslinux
+      state: present
+
+
+  - name: Execute ReaR Backup
+    shell: rear -v mkbackup
+
+  - name: print play hosts that failed
+    debug:
+        msg: "{{ ansible_play_hosts_all|difference(ansible_play_batch) }}"
+    run_once: true

@@ -1,0 +1,35 @@
+---
+- name: AIX Patching 
+  hosts: p814hqldap.turnpike.iway
+  become: true
+  gather_facts: true
+  vars:
+    nim_lpp_source: 7300-01-02-2320_lpp
+    nim_master: p8hqnim.turnpike.iway
+  collections:
+    - ibm.power_aix
+
+  tasks:
+  - name: Current oslevel
+    shell: "oslevel -s"
+    register: output_oslevel
+
+  - name: Print Current oslevel
+    debug:
+      msg: "{{ ansible_hostname }} has the AIX oslevel of {{ output_oslevel.stdout }}"
+
+  - name: Run AIX Update
+    nim:
+      action: update
+      lpp_source: "{{ nim_lpp_source }}"
+      targets: "p814hqldap.turnpike.iway"
+    delegate_to: "{{ nim_master }}"
+
+  - name: Updated oslevel
+    shell: "oslevel -s"
+    register: output_oslevelnew
+
+  - name: Print oslevelnew
+    debug:
+      msg: "{{ ansible_hostname }} now has the AIX oslevel of {{ output_oslevelnew.stdout }}"
+...

@@ -1,0 +1,120 @@
+---
+
+- name: clean up the log file
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Remove file 
+      file:
+        path: /tmp/aix_mon.out
+        state: absent
+    - name: Create file 
+      file:
+        path: /tmp/aix_mon.out
+        state: touch
+        mode: 0644
+
+- name: check filesystem, memory and errpt
+  hosts: yy_client1 yy_client2
+  vars:
+    df_threshold: 10
+    memory_threshold: 20
+    my_dir: /root/ansible/njtp
+  gather_facts: no
+  tasks:
+    - name: check whether /usr/lcoal/bin exists
+      file:
+        path: /usr/local/bin
+        owner: root
+        mode: 0755
+        state: directory
+
+    - name: Install script /usr/local/bin/df.sh
+      copy:
+        src: "{{ my_dir }}/df.sh"
+        dest: /usr/local/bin/df.sh
+    - name: Install script /usr/local/bin/mem.sh
+      copy:
+        src: "{{ my_dir }}/mem.sh"
+        dest: /usr/local/bin/mem.sh
+    - name: Install script /usr/local/bin/errpt.sh
+      copy:
+        src: "{{ my_dir }}/errpt.sh"
+        dest: /usr/local/bin/errpt.sh
+
+    - name: check whether /usr/lcoal/bin/df.sh exists
+      file:
+        path: /usr/local/bin/df.sh
+        owner: root
+        mode: 0755
+        state: file
+    - name: check whether /usr/lcoal/bin/mem.sh exists
+      file:
+        path: /usr/local/bin/mem.sh
+        owner: root
+        mode: 0755
+        state: file
+    - name: check whether /usr/lcoal/bin/errpt.sh exists
+      file:
+        path: /usr/local/bin/errpt.sh
+        owner: root
+        mode: 0755
+        state: file
+
+    - name: Issue command /usr/local/bin/df.sh
+      shell: "/usr/local/bin/df.sh {{ df_threshold }}"
+      register: df_msg
+    - name: Issue command /usr/local/bin/mem.sh
+      shell: "/usr/local/bin/mem.sh {{ memory_threshold }}"
+      register: mem_msg
+    - name: Issue command /usr/local/bin/errpt.sh
+      shell: /usr/local/bin/errpt.sh
+      register: errpt_msg
+
+#    - name: result df
+#      debug:
+#        var: df_msg
+#    - name: result memory
+#      debug:
+#        var: mem_msg
+#    - name: result errpt
+#      debug:
+#        var: errpt_msg
+
+    - set_fact:
+         thehost: "{{ ansible_host }}"
+
+    - name: Copy filesystem threshold data to local file /tmp/aix_mon.out
+      lineinfile:
+         line: "{{ '*** ' + thehost + ' ***\n' + df_msg.stdout }}"
+         path: /tmp/aix_mon.out
+         insertafter: EOF
+      delegate_to: localhost
+    - name: Copy memory threshold data to local file /tmp/aix_mon.out
+      lineinfile:
+         line: "{{ '*** ' + thehost + ' ***\n' + mem_msg.stdout }}"
+         path: /tmp/aix_mon.out
+         insertafter: EOF
+      delegate_to: localhost
+    - name: Copy errpt data to local file /tmp/aix_mon.out
+      lineinfile:
+         line: "{{ '*** ' + thehost + ' ***\n' + errpt_msg.stdout }}"
+         path: /tmp/aix_mon.out
+         insertafter: EOF
+      delegate_to: localhost
+
+- name: Send email
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Send email
+#      community.general.mail:
+#        subject: "AIX Daily Monitoring Output"
+#        attach: 
+#        - /tmp/aix_mon.out
+#        to: yadong@us.ibm.com
+#        host: yyclient1.rchland.ibm.com
+#        body: "This is a test email from ansible"
+      shell: /usr/bin/mailx -s "AIX Daily Monitoring Output" yadong@us.ibm.com < /tmp/aix_mon.out
+
+...
